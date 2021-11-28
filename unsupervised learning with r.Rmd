@@ -1,0 +1,338 @@
+---
+title: "R Notebook"
+author: "Kevin Kirotich"
+output:
+  html_document:
+    df_print: paged
+---
+Data Understanding
+
+1. Define the question:
+
+- Perform clustering stating insights drawn from your analysis and visualizations.
+- Upon implementation, provide comparisons between the approaches learned this week i.e. K-Means clustering vs Hierarchical clustering highlighting the strengths and limitations of each approach in the context of your analysi
+
+2. Metric for success:
+
+- Create models using K-means Modeling & Hierarchical clustering and compare them.
+- Highlighting the strengths and limitations of each approach
+
+
+3. Understanding the context:
+
+Kira Plastinina is a Russian brand that is sold through a defunct chain of retail stores in Russia, Ukraine, Kazakhstan, Belarus, China, Philippines, and Armenia. The brand’s Sales and Marketing team would like to understand their customer’s behavior from data that they have collected over the past year. More specifically, they would like to learn the characteristics of customer groups.
+My findings should help inform the team in formulating the marketing and sales strategies of the brand. 
+
+4. Experimental design:
+
+Steps to be undertaken during this study include:
+- Problem Definition
+- Loading the data and needed packages.
+- Exploring the dataset.
+- Cleaning the data.
+- Feature engineering.
+- Exploratory Data Analysis.
+- Clustering(K-Means and Hierarchical)
+- Challenging the solution
+
+
+Loading our data
+```{r}
+df = read.csv(url("http://bit.ly/EcommerceCustomersDataset"))
+
+head(df)
+```
+
+```{r}
+#get the dimension
+dim(df)
+```
+The dataset has 12330 rows and 18 columns
+
+```{r}
+
+```
+
+```{r}
+#Checking the summary of our dataset
+summary(df)
+
+```
+```{r}
+#Checking for missing values
+colSums(is.na(df))
+```
+The is presence of null null values on our columns
+We will use the MICE package 
+
+```{r}
+# Loading the library
+library("mice")
+
+#fill the missing values using the MICE package
+mice_fill <- mice(df[, c("Administrative","Administrative_Duration","Informational","Informational_Duration","ProductRelated","ProductRelated_Duration","BounceRates","ExitRates")],method='rf')
+
+mice_filled <- complete(mice_fill)
+```
+```{r}
+#Transferring the missing values into the main dataset
+df$Administrative <- mice_filled$Administrative
+df$Administrative_Duration <- mice_filled$Administrative_Duration
+df$Informational <- mice_filled$Informational
+df$Informational_Duration <- mice_filled$Informational_Duration
+df$ProductRelated <- mice_filled$ProductRelated
+df$ProductRelated_Duration <- mice_filled$ProductRelated_Duration
+df$BounceRates <- mice_filled$BounceRates
+df$ExitRates <- mice_filled$ExitRates
+```
+
+```{r}
+#Checking if missing values have been handled
+colSums(is.na(df))
+```
+There are no more null values in the dataset
+
+Check for duplicates
+```{r}
+sum(duplicated(df))
+```
+There are duplicated values
+```{r}
+df = unique(df)
+```
+Check for outliers
+```{r}
+num_cols <- unlist(lapply(df, is.numeric))   
+num_cols
+
+```
+```{r}
+#selelcting numerical columns
+df_num <- df[ , num_cols] 
+```
+
+We will import melt function organize our data into a long format string
+```{r}
+#load the library
+library("reshape")
+
+#Apply melt function
+melt_data <- melt(df_num)
+```
+```{r}
+library("ggplot2")
+p <- ggplot(melt_data, aes(factor(variable), value)) 
+p + geom_boxplot() + facet_wrap(~variable, scale="free")
+```
+
+several columns had outliers: these are Administrative Duration, Informational, Informational Duration, ProductRelated, Product Related Duration & Page Values columns.
+To maintain data integrity we will not drop the outliers
+
+
+Exploratory Data Analysis
+
+1. Univariate Analysis
+
+Barplots
+```{r}
+#The distribution of visitors by month
+barplot(table(df$Month),  col =  c("red" , "seagreen", "cyan"), ylab = "No. of visitors", main = "Distribution of visitors vs Month")
+```
+May had the highest number of visitors followed by november. February had the least number of visitors to the site
+
+```{r}
+#Distribution of visitors by the operating system used
+barplot(table(df$OperatingSystems),  col =  c("magenta" , "purple", "orange"), ylab = "No. of visitors", main = "Distribution of visitors vs Operating System")
+```
+Most visitors were using operating system representd by 2
+
+```{r}
+#Distribution of visitors by religion
+barplot(table(df$Region),  col =  c("yellow" , "pink", "brown"), ylab = "No. of visitors", main = "Distribution of visitors by Region")
+```
+The prevalent religion of the visitors is denoted by 1 followed by 3. religion 5 was the least favorite
+
+
+2. Bivariate analysis
+
+```{r}
+#distribution showing clients who brought revenue
+ggplot(df, aes(Revenue)) + 
+  geom_bar(fill = "green")
+```
+```{r}
+#Group the visitor type by the revenues
+library(dplyr)
+visitor <- df %>% 
+  group_by(VisitorType) %>%
+  summarise(n=sum(Revenue, na.rm=TRUE)) %>%
+  arrange(desc(n))%>%
+  head(10)
+
+
+#Plotting the results
+b <- ggplot(visitor, aes(x = `VisitorType`, y = n))
+
+b + geom_col(aes(fill = `VisitorType`))
+```
+A returning visitor is most likely to purchase an item the a new visitor.
+This is from the high revenue collected from the graph
+
+
+```{r}
+#check the time someone spends on on a product and revenue brought in
+library()
+product_related_duration <- df %>% 
+  group_by(Revenue) %>%
+  summarise(n=mean(ProductRelated_Duration, na.rm=TRUE)) %>%
+  arrange(desc(n))%>%
+  head(10)
+
+#plot
+p <- ggplot(product_related_duration, aes(x = `Revenue`, y = n))
+
+p + geom_col(aes(fill = `Revenue`))+
+  scale_fill_manual(values = c('magenta', 'cyan'))
+
+
+```
+From the plots we can say that the longer the user spends on a product page they are most likely to bring in revenue
+
+```{r}
+#comparing bounce rate to the revenue broght by users 
+bounce_rate <- df %>% 
+  group_by(Revenue) %>%
+  summarise(n=mean(BounceRates, na.rm=TRUE)) %>%
+  arrange(desc(n))%>%
+  head(10)
+
+#plot
+p <- ggplot(bounce_rate, aes(x = `Revenue`, y = n))
+
+p + geom_col(aes(fill = `Revenue`)) +
+  scale_fill_manual(values = c('purple', 'cyan'))
+```
+Correlation
+
+```{r}
+#library
+library("corrplot")
+correlations = cor(df_num)
+corrplot(correlations, method="shade", tl.col="black", tl.srt=70)
+```
+There is a high positive correlation between the product related duration and and product related. it shows the time spent on a product page is correlated to the related product
+
+There is a high positive correlation between the Administrative duration and and Administrative.
+
+3. Multivariate Analysis
+
+```{r}
+#Factoring categorical values
+df$VisitorType <- as.integer(as.factor(df$VisitorType))
+df$Month <- as.integer(as.factor(df$Month))
+df$Weekend <- as.integer(as.factor(df$Weekend))
+```
+
+Principal Component Analysis
+```{r}
+df.pca <- prcomp(t(df[,c(1:17)]), center = TRUE, scale = TRUE)
+summary(df.pca)
+```
+```{r}
+plot(df.pca$x[,1],df.pca$x[,2])
+```
+```{r}
+df.pca_var <- df.pca$sdev**2
+
+
+df.pca_var_perc <- round(df.pca_var/sum(df.pca_var)*100,1)
+
+
+
+barplot(df.pca_var_perc,main="Screen Plot",xlab = "Principle Component",ylab = "Percentage variation")
+```
+```{r}
+df.pca_data
+```
+
+
+
+```{r}
+# plot for PCA
+plot(df.pca,type="l")
+
+```
+```{r}
+biplot(df.pca,scale=0)
+```
+This does not show the patterns very well
+
+
+
+Clustering
+```{r}
+#separating class variable from response
+df.class<- df[, "Revenue"]
+df.res<- df[, c(1:17)]
+dim(df.res)
+```
+```{r}
+#normalize the data. first we create the function
+normalize_data <- function(x){
+  return ((x-min(x)) / (max(x)-min(x)))
+}
+#apply function
+df.res$Administrative_Duration<- normalize_data(df.res$Administrative_Duration)
+df.res$ProductRelated<- normalize_data(df.res$ProductRelated)
+df.res$ProductRelated_Duration<- normalize_data(df.res$ProductRelated_Duration)
+df.res$BounceRates<- normalize_data(df.res$BounceRates)
+df.res$ExitRates<- normalize_data(df.res$ExitRates)
+head(df.res)
+
+```
+```{r}
+#set the number of clusters in our data-frame
+result<- kmeans(df.res,2) 
+result$size 
+```
+```{r}
+table(result$cluster, df.class)
+```
+
+Hierarchical Clustering
+```{r}
+#scaling data
+df.scale <- scale(df)
+head(df.scale)
+```
+```{r}
+#create a distance matrix and find the length between rows
+dist_matx = dist(df.scale, method = "euclidean")
+
+#apply ward method to the hierarchical clustering
+wand.hc <- hclust(dist_matx, method = "ward.D2" )
+```
+
+```{r}
+#Visualizing
+plot(wand.hc, cex = 0.6, hang = -1)
+```
+
+```{r}
+wand.sc <- hclust(dist_matx, method = "single" )
+
+plot(wand.sc, cex = 0.6, hang = -1)
+
+```
+
+These results are inconclusive. Due to many columns. 
+Better PCA is needed to drop them.
+
+
+
+
+
+
+
+
+

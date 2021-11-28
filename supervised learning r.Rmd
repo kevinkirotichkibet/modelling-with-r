@@ -1,0 +1,300 @@
+---
+title: "Supervised Learning"
+author: 'by: Kevin Kirotich'
+output:
+  html_document:
+    df_print: paged
+  html_notebook: default
+  pdf_document: default
+---
+<h1 style="color:blue;"><u>Data Understanding</u></h1>
+<h3 style="color:crimson">1. Define the question</h3>
+
+<p><b>Working as a Data Scientist, I have been tasked by a client to identify individuals who are most likely to on ads on her website about an online cryptography course.</b></p>
+
+<h3 style="color:crimson">2. Metric of success</h3>
+<ul>
+  <li>Cleaned Data</li>
+  <li>Finding relationship between data and representing it graphically</li>
+  <li>Provide conclusion and recommendation</li>
+</ul>
+
+<h3 style="color:crimson">3. Understanding the context</h3>
+<p>Our client, a Kenyan entrepreneur, created an online cryptography course which she ran ads in the past.</p>
+<p>These ads collected data and she would like to employ our services to identify which individuals are likely to click on her ads.</p>
+
+<h3 style="color:crimson">4. Experimental Design</h3>
+<p>The following were the space taken during the study:</p>
+<ol>
+  <li>Loading the Data</li>
+  <li>Exploring the Dataset</li>
+  <li>Cleaning the Data</li>
+  <li>Exploratory Data Analysis</li>
+  <li>Conclusion</li>
+  <li>Recommendation</li>
+</ol>
+
+<h3 style="color:crimson">5. Data Appropriateness</h3>
+<p>Data is checked while performing data cleaning.</p>
+
+<h4 style="color:seagreen">Loading our Data</h4>
+```{r}
+# Loading the data
+df = read.csv(url("http://bit.ly/IPAdvertisingData"))
+
+# Previewing the data
+head(df)
+```
+<h4 style="color:seagreen">Exploring our Dataset</h4>
+```{r}
+summary(df)
+```
+
+
+```{r}
+# Checking the shape of the data
+dim(df)
+```
+<p>Our dataset has 1000 rows and 10 columns</p>
+
+```{r}
+# Checking names of our columns
+colnames(data)
+```
+<p>We will change the column called male at position 7 to gender</p>
+```{r}
+colnames(df)[7] <- "Gender"
+
+#check for change
+colnames(df)
+```
+<p>The change is successful</p>
+
+<h4 style="color:seagreen">Cleaning our data</h4>
+<p>1. Check for missing values</p>
+
+```{r}
+colSums(is.na(df))
+```
+<p> There are no missing values in our columns</p>
+<p>2. Check for duplicates</p>
+
+```{r}
+#sum(duplicated(df))
+
+sum(duplicated(df))
+```
+<p>There are no duplicated values</p>
+```{r}
+  str(df)
+
+```
+<p>Change the datatype for timestamp column to be a timestamp</p>
+```{r}
+#convert to time stamp
+df$Timestamp <- as.Date(df$Timestamp)
+
+#preview our columns
+str(df)
+
+```
+```{r}
+#Checking for outliers
+Time_spent = df$Daily.Time.Spent.on.Site
+Age = df$Age
+Income = df$Area.Income
+Internet = df$Daily.Internet.Usage
+Gender = df$Gender
+Clicked = df$Clicked.on.Ad
+
+boxplot(Time_spent, Age, Income, Internet, Gender, Clicked, main = "Boxplots to check for outliers",   names = c("Daily Time Spent on Site", "Age", "Income","Daily Internet Usage", "Gender","Clicked on ad"), vertical = TRUE)
+```
+<p>There are significant outliers in income column. These exist in real life and so we are going to ignore them. Dropping them might lead to loss of vital information.</p>
+<h4 style="color:seagreen">Feature Engineering</h4>
+<p>We can get the month from the date and use it to perform EDA</p>
+```{r}
+#create a new column to hold the months
+df$Month <- months(df$Timestamp)
+head(df)
+
+```
+<h2 style="color:blue">Exploratory Data Analysis</h2>
+<h3 style="color:crimson">1. Univariate Analysis</h3>
+<h4 style="color:seagreen">a. Mean</h4>
+```{r}
+#columns with continuous values
+df_num = df[,c("Daily.Time.Spent.on.Site", "Age", "Area.Income","Daily.Internet.Usage" ,"Gender", "Clicked.on.Ad" )]
+#view numerical dataset
+head(df_num)
+```
+```{r}
+#find the mean
+colMeans(df_num)
+```
+<h4 style="color:seagreen">b. mode</h4>
+```{r}
+mode_func <- function(my_value){
+  uniq_value <- unique(my_value)
+  uniq_value[which.max(tabulate(match(my_value,uniq_value)))]
+}
+
+message("The mode of time spent on site: " , as.character(mode_func(df$Daily.Time.Spent.on.Site)))
+
+message("The mode of Age: ",as.character(mode_func(df$Age)))
+
+message("The mode of Area income: " ,as.character(mode_func(df$Area.Income)))
+
+message("The mode of Daily Internet Usage: ", as.character(mode_func(df$Daily.Internet.Usage)))
+
+message("The mode of City: ",as.character(mode_func(df$City)))
+
+message("The mode of Gender: ", as.character(mode_func(df$Gender)))
+
+message("The mode of Country: ", as.character(mode_func(df$Country)))
+message("The mode of Clicked on Ad: ", as.character(mode_func(df$Clicked.on.Ad)))
+message("The mode of Month: ", as.character(mode_func(df$Month)))
+```
+<h4 style="color:seagreen">plots</h4>
+```{r}
+#show how many visitors were across the months
+barplot(table(df$Month), main = "Number of Visitors vs Months", ylab = "No. of visitors", col ="magenta", cex.names = 0.8)
+```
+<p>From the barplot above we see that February had the highest number of traffic followed by March. July had the least visitors</p>
+
+```{r}
+barplot(table(df$Gender),  main = "Distribution of Gender" ,col =  c("gold" , "turquoise"), ylab = "No. of visitors")
+```
+<h3 style="color:crimson">2. Bivariate Analysis</h3>
+```{r}
+library(corrplot)
+correlation = cor(df_num)
+
+corrplot(correlation, method="shade", tl.col="black", tl.srt=45)
+```
+<p>The following was our analysis for the correlation plot.</p>
+<ol>
+ <li> <p>The is a high negative correlation between the daily time spent on site and clicking on the ads. This shows that the more time people spend time on ads the less they are likely to click on it</p></li>
+  <li><p>The is a medium positive correlation between age and people who clicked on ads. Hence the older the visitor the more likely chance it is for them to click on the ads.</p></li>
+  <li><p>There is medium positive correlation between the someones daily internet usage and daily time spent on the site. This means that the the amount of time spent of the site is related to his/her daily internet usage</p></li>
+  <li><p>There is a medium negative relationship between one's income and whether they clicked on an ad. Thus, the higher one's income, the less likely they are to click on ad.</p></li>
+</ol>
+
+
+<h3 style="color:crimson">Conclusion</h3>
+<p>From the study the following are my conclusions</p>
+<ul>
+  <li><p>The most time spent on the site is 62.26 and the most popular age of the visitors is 31 years</p></li>
+  <li><p>Lisamouth is the city with the most vistors while Czech Republic is the country with many visitors</p></li>
+  <li><p>The users of the website are likely to click on ads if they are of old age or if they spend a little time on the site.</p></li>
+  <li><p>Most of the visitors were female and February had the most traffic</p></li>
+</ul>
+
+<h3 style="color:crimson">Recommendation</h3>
+From the data analysis done, i would recommend my client to deploy ads that are more of the field she is working on i.e she should put up ads related to courses on cryptocurrency as it would attract the visitors coming for that specific content.
+
+
+<h3 style="color:crimson">K-Nearest neighbor</h3>
+
+<p>Convert data convert labels in the target variable</p>
+
+
+```{r}
+df$Clicked.on.Ad <- factor(df$Clicked.on.Ad)
+```
+
+```{r}
+
+#select features to be used for modelling
+df_f <- df[c('Daily.Time.Spent.on.Site', 'Age', 'Area.Income', 'Daily.Internet.Usage', 'Gender', 'Clicked.on.Ad')]
+
+#preview our data
+head(df_f)
+
+```
+
+<h4 style="color:seagreen">Normalize the data</h4>
+
+```{r}
+#create a function to normalize our data
+normalize_func <- function(x) {
+return ((x - min(x)) / (max(x) - min(x))) }
+```
+
+```{r}
+#Normalize the data
+df_norm <- as.data.frame(lapply(df_f[,1:5], normalize_func))
+```
+
+<h4 style="color:seagreen">Splitting our dataset to train and test dataset</h4>
+```{r}
+#select a random seed
+set.seed(101)
+
+#random selection of 70% data.
+rm_df <- sample(1:nrow(df_norm),size=nrow(df_norm)*0.7,replace = FALSE) 
+ 
+train <- df_f[rm_df,] 
+test <- df_f[-rm_df,] 
+
+train_label <- df_f[rm_df,6]
+test_label <-df_f[-rm_df,6]
+
+
+```
+
+<h3 style="color:crimson">Modelling</h3>
+
+```{r}
+#check number of rows
+NROW(train_label)
+```
+```{r}
+#Knn function
+#import class library
+library("class")
+knn <- knn(train=train, test=test, cl=train_label, k=26)
+
+```
+
+```{r}
+library("caret")
+confusionMatrix(table(knn,test_label))
+```
+
+
+```{r}
+intrain <- createDataPartition(y = df_f$Clicked.on.Ad, p= 0.7, list = FALSE)
+train <- df_f[intrain,]
+test <- df_f[-intrain,]
+
+```
+
+```{r}
+train_control <- trainControl(method = "repeatedcv", number = 10, repeats = 5)
+```
+<p>Challenging the solution with SVM</p>
+```{r}
+svm_method <- train(Clicked.on.Ad ~., data = train, method = "svmLinear",
+trControl=train_control, preProcess = c("center", "scale"), tuneLength = 10)
+```
+
+```{r}
+test_pred <- predict(svm_method, newdata = test)
+confusionMatrix(table(test_pred, test$Clicked.on.Ad))
+```
+
+
+<p>svm models accuracy is 96% unlike KNN which was at 73%
+The svm is the better model to use.</p>
+
+
+
+
+
+
+
+
+
+
+
+
